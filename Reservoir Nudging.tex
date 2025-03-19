@@ -1,0 +1,268 @@
+\documentclass{article}
+\usepackage[utf8]{inputenc}
+\usepackage{geometry}
+% \geometry{margin=0.5in}
+
+% These packages include nice commands from AM\Omega-LaTeX
+\usepackage{amssymb,amsmath,amsthm,bm,graphicx,multicol,tikz,enumitem,mathrsfs, array, geometry, pdfpages, blkarray, mathdots, hyperref, arydshln, quiver}
+
+\usepackage{xstring}
+\usepackage{cancel}
+\usepackage{centernot}
+
+\usepackage{bbold} % This enables bbold 1 for identity
+
+
+
+\newcommand{\pd}[2]{\frac{\partial #1}{\partial #2}}
+\newcommand{\td}[2]{\frac{d #1}{d #2}}
+
+
+\newcommand{\setcolor}[2][black]{\color{#1}#2\color{black}}
+
+\newtheorem{theorem}{Theorem}
+\newtheorem{cor}{Corollary}
+\newtheorem{lem}{Lemma}
+\newtheorem{Def}{Definition}
+
+\newcommand{\mat}[2]{
+    \IfInteger{#1}{
+        \left[\begin{array}{*{#1}c} #2 \end{array}\right]
+    }{
+        \left[\begin{array}{#1} #2 \end{array}\right]}
+    }
+
+\newcommand{\Wout}{W_{\text{out}}}
+\newcommand{\Win}{W_{\text{in}}}
+
+
+\title{An Insight into the Relationship Between Reservoir Computing and Nudging}
+\date {March 12, 2025}
+\author{DT Litster}
+\begin{document}
+
+\maketitle
+
+Assume we have some signal $u(t)$ that satisfies the differential equation $\dot u = f(u, t)$ on an interval $[0, T]$ for some unknown $f$. For whatever reason, we decide that it is not best to approximate $f$ directly; instead, we hope to construct basis functions $r$ such that there is a linear $W$ such that $\hat u = \Wout r \approx u$ on $[0, T]$. Hopefully this can allow better future approximations, too. 
+
+Using the ODE for nudging, if $\dot r = g(u, r, t)$ and $\hat {\dot u} = f(\hat u, t) - \gamma (\hat u-u)$ for a constant $\gamma$, then 
+\begin{align*}
+    \hat{\dot u} &= \Wout \dot r = \Wout g(u, r, t) 
+    \\
+    &= f(\hat u, t) - \gamma(\Wout r-u)
+    \\
+    \dot r = g(u, r, t) &= W^\dagger (f(\Wout r, t) - \gamma(\Wout r-u))
+    \\
+    &= \gamma (-P_{\operatorname{col}(W^\dagger)}r + W^\dagger (\frac{1}{\gamma}f(\Wout r, t) + u)).
+\end{align*}
+Here, we assumed that $\Wout$ is full rank; $W^\dagger$ is then some matrix where $\Wout W^\dagger = I$; it follows that $W^\dagger \Wout$ is a (possibly nonorthogonal) projection onto the column space of $W^\dagger$. We choose $V$ such that $\mat{1}{\Wout \\ V}^{-1} = \mat{2}{W^\dagger & V^\dagger}$; at least one such $V$ exists, although there are often infinitely many candidates. Then  
+\begin{align*}
+    \dot r &= \gamma (-W^\dagger\mat{2}{I & 0}\mat{1}{\Wout\\V} r + \mat{2}{W^\dagger & V^\dagger}(\frac{1}{\gamma}f(\mat{2}{I & 0}\mat{1}{\Wout\\V} r, t) + u)).
+\end{align*}
+However, many ODEs satisfy this projection rule that $\Wout r \approx u$; for example, solutions to every ODE of the form
+\begin{align*}
+    \hat{\dot r} &= \gamma (-\mat{2}{W^\dagger & V^\dagger }\mat{2}{I & 0 \\ C_3 & C_4}\mat{1}{\Wout\\V} \hat r + \hat f(\mat{2}{I & 0 \\ C_5 & C_6}\mat{1}{\Wout\\V} \hat r, t) + \mat{2}{W^\dagger & V^\dagger}\mat{2}{I \\ C_7}u)
+\end{align*}
+where $\hat f(\mat{2}{a\\b}, t) = \mat{2}{\frac{1}{\gamma} W^\dagger f(a, t) \\ \tilde f(a, b, t)}$ for some $\tilde f$ satisfies $\Wout \hat {\dot r} = \Wout \dot r$, so solutions satisfy $\Wout \hat r = \Wout r \approx u$. We are therefore free to choose $C_3 = 0, C_4 = I$ to get 
+\begin{align*}
+    \dot r &= \gamma (- r + \hat f(\mat{2}{I & 0 \\ C_5 & C_6}\mat{1}{\Wout\\V} r, t) +  \mat{2}{W^\dagger & V^\dagger} \mat{1}{I \\ C_7}u)
+\end{align*}
+
+
+Since $f$ is unknown, we can replace it with a something that can approximate arbitrarily well every function in the class to which we assume $f$ belongs; ooh I know! A neural net! Alas, I  know not why it should be insufficient to use a neural net at the start but sufficient here. Replacing $\hat f$ with a neural net and dropping explicit time dependence, we have
+\begin{align*}
+    \dot r &= \gamma (- r + B\tanh(A\mat{2}{I & 0 \\ C_5 & C_6}\mat{1}{\Wout\\V} r) +  \mat{2}{W^\dagger & V^\dagger} \mat{1}{I \\ C_7}u)
+\end{align*}
+which is definitely similar to the ODE for reservoir computing. As a comparison, reservoir computing uses
+\begin{align*}
+    \dot r &= \gamma (-r + \tanh(Ar + \Win u))
+    \\
+    &= \gamma (-r + \tanh(\mat{2}{A & \Win}\mat{1}{r \\  u}))
+\end{align*}
+Let's discuss some of the differences. The main one is that the neural net in reservoir computing is a function of $\mat{1}{r \\ u}$ rather than just $r$. In other words the difference is that the $u$ is being added inside the neural net as opposed to outside. \textbf{\textit{I don't think this can be reconciled}}; it seems to be part of the fundamental difference between the two methods. If the reservoir added bias terms, we might be able to argue something with the universal approximation theorem for large enough $r$, but without bias terms, the approximation $\tanh (Ar + \Win u) \approx \tanh (Ar) + \Win u$ holds only when $\Win u$ and $Ar$ are both sufficiently small (for relative error). One potential interpretation is that reservoir computing approximates clipped nudging; by which I mean, nudging with a $\hat u - u$ term if $\hat u - u$ is small and nudging with a constant term if it is large. 
+
+The other main difference comes from how terms are defined; as I understand it, in reservoir computing typically one chooses $\Win$, $A$, and $r(0)$ (often with randomness) and then look for $\Wout$ that approximately solves $\Wout r \approx u$ to solve the problem. 
+
+However, the nudging approach chooses $\Wout, V$ and then fits a neural net to the ode for $u$. It then uses the neural net in the nudging problem for $r$, and reconstructs $u$ from $r$. In particular, if we assume $\hat A = A\mat{2}{I & 0 \\ C_5 & C_6}$ is block lower triangular with upper left block $\hat A_{11}$ and $B = \mat{2}{W^\dagger & V^\dagger}\mat{2}{B_{11} & 0 \\ B_{21} & B_{22}}$, we have that 
+\begin{align*}
+    \Wout B\tanh(\hat A\mat{1}{\Wout\\V} r) &= \mat{2}{B_{11} & 0} \tanh (\hat A\mat{1}{\Wout \\ V}r)
+    \\
+    &= B_{11} \tanh (\hat A_{11}\Wout r)
+    \\
+    &=  B_{11} \tanh (A_{11} u).
+\end{align*}
+We then use a NODE (Neural ODE) or something similar to fit $\dot u \approx B_{11} \tanh (A_{11} u)$ from the data. Then to develop our reservoir we still have a lot of free parameters; the rest of our adjacency matrix $\hat A$ and our out layer $B$, as well as $C_7$. 
+
+To make the two methods comparable, we could ask ``For a given $A$ and $\Win$, do there exist $\Wout, V$ that makes the two methods equivalent (excepting the irreconcilable placement of $u$)?'' Some sufficient conditions were outlined above:
+\begin{align*}
+    B = I &= \mat{2}{W^\dagger & V^\dagger}\mat{2}{B_{11} & 0 \\ B_{21} & B_{22}}
+    \\
+    \mat{1}{\Wout \\ V} &= \mat{2}{B_{11} & 0 \\ B_{21} & B_{22}}
+    \\
+    \Win &= \mat{2}{W^\dagger & V^\dagger} \mat{1}{I \\ C_7}
+    \\
+    &= \mat{2}{B_{11}^{-1} & 0 \\ -B_{22}^{-1}B_{21}B_{11}^{-1} & B_{22}^{-1}}\mat{1}{I \\ C_7}
+    \\
+    &= \mat{1}{B_{11}^{-1} \\ *}
+    \\
+    \hat A &= \mat{2}{\hat A_{11} & 0 \\ \hat A_{21} & \hat A_{22}}
+    \\
+    \hat A \mat{1}{\Wout \\ V}&= \mat{2}{\hat A_{11}\Wout \\ *}
+    \\
+    &= \mat{2}{\hat A_{11}B_{11} & 0 \\ * & *}.
+\end{align*}
+The requirement that the first few rows of $\Win$ be invertible might seem tricky, but for random matrices with normally distributed entries this is almost always true. However, the requirement that $\hat {A}$ have a $\dim u \times \dim r - \dim u$ block of zeros could be very difficult! I expect for Erdos-Renyi graphs with smallish values of $p$ we could have this with high probability though, if we allow a permutation to be applied to $A$ before computation. If these conditions are met for $\hat A$ and $\Win$, then there exists a $\Wout$ such that for any $u$ whose derivative is sufficiently approximated by this neural net, the reservoir computing ODE satisfies 
+\[
+\hat{\dot u} = \gamma (-\hat u + \Wout \tanh(\hat A\mat{1}{\Wout\\V} r) + \Wout\Win u) =  \gamma (-\hat u + B_{11} \tanh (A_{11} \hat u) + u) \approx f(\hat u) - \gamma (\hat u - u),
+\]
+which is the nudging ODE!
+
+\section{Potential Questions for Project}
+Let me know which of these you are most interested in pursuing for this project; I'd be happy with any of them!
+\begin{enumerate}
+    \item Which tends to be more accurate at future predictions; NODE+nudging, or reservoir computing?
+
+    \item Is reservoir computing really just approximating clipped nudging?
+
+    \item What is the relationship between initial conditions in reservoir computing and nudging? Can we interpret the different elements of $r$ as approximating nearby initial conditions in some way?
+
+    \item Would adding bias terms to reservoir computing help with computation? What about adding an out-layer?
+
+    \item Could you use nudging to find more useful starting positions for reservoir computing than random noise? Or does this perform worse?
+
+    \item Does it make sense to try to learn the matrices $A$ and $\Win$ like would typically be done in ML? What's a good DA way to learn them?
+
+    \item Whatever questions you have, because those are also pretty interesting.
+
+    \item How do the elements of $r$ compare to normally distributed initial conditions to the original problem?
+
+    \item Monte Carlo nudging with random initial conditions.
+\end{enumerate}
+
+Slightly different thoughts:
+\begin{align*}
+    \Wout \dot r &= \Wout \tanh(Ar) -\gamma (\Wout r - \Wout \Win u)
+\end{align*}
+looks more like a neural net already, and $\Wout$ is learned! Supposing 
+\begin{align*}
+    f(\hat u) &\approx \Wout \tanh (\mat{2}{A_{:1} & A_{:2}}\mat{1}{\Wout \\ V}r)
+    \\
+    &= \Wout \tanh(A_{:1}\hat u + A_{:2} Vr).
+\end{align*}
+We define a cell of the vector $x=A_{:1}\hat u $ to be a collection of indices $I$ such that for $i\in I$, $x_i$ is constant and the vector $P_I x$ satisfies $\Wout P_I x = 0$ where $P_I$ is the orthogonal projector onto the indices $I$. We then have $\Wout \tanh(A_{:1}\hat u + A_{:2} Vr) =  \Wout \tanh(A_{:1}\hat u)$ if (and only if?) on each cell of $x$, each column of $Y = A_{:2}V = AV^\dagger V$ constant.
+
+Suppose $\Wout \tanh(x+cy) =  \Wout \tanh(x)$ for all $c\in\mathbb{R}$ for $x=A_{:1}\hat u$ and some vector $y$. Then in the limit of large $c$, the vector $\tanh(x+cy)\rightarrow \hat x$ where $\hat x_i = \tanh x_i$ if $y_i = 0$ and $\hat x_i = \operatorname{sign}(y_i)$ otherwise. Since multiplication by $\Wout$ is continuous, we must have $\Wout \hat x = \Wout \tanh (x)$. Let $I_{\lambda, \mu} = \{i\;:\;y_i = \lambda, x_i = \mu\}$, and $\Lambda = \{(\lambda, \mu)\neq (0, \mu)\;:\;|I_{\lambda, \mu}|\geq 1\}$ with $|\Lambda| = \ell$ and $|I_{\lambda, \mu}| = \ell_\lambda$. Choosing an arbitrary order on $\Lambda$, we also write $I_1 = I_{\lambda_1, \mu_1}$, etc. By construction, $x$ and $y$ are constant on $I_i$, and $I_i$ is the largest block where this is true. This allows us to assume that each row of $x+cy$ is a different affine function of $c$. 
+
+It is somewhat difficult (but I think possible) to show that if $y$ has only nonzero entries, $x_i+cy_i$ is a unique affine function for each $i$, and $\Wout (\tanh(x+cy) - \tanh(x)) = 0$ for all $c\in\mathbb{R}$, then $\Wout = 0$. The argument amounts to show that each $\tanh(x_i+cy_i) - \tanh(x_i)$ is linearly independent from the rest, which I am not sure how to do. But it seems mostly obvious! Ish. I guess. Look, it seems fine in Desmos.
+
+Assuming the above paragraph is right, then $\Wout \tanh(x+cy) = \Wout \tanh(x)$ only if $\Wout \mathbb{1}_{I_i} = 0$ for all $i$. When does such a $\Wout$ exist? Well, the fact that $Y=AV^\dagger V$ has constant columns on the cells $I_i$ shows that the set of $I_i$ form an equitable partition (of out-edges) on $AV^\dagger V$; we then need to ask whether there exists $\Wout$ and a right inverse $W^\dagger$ such that $\Wout \Win = \Wout W^\dagger = I$ and for the refinement of $\{I_i\}_i$ that is also an out-edge EP for $A W^\dagger \Wout r$  we have that $\Wout$ is constructed from local eigenvectors. Alternatively, we look for $\Wout$ such that 
+\begin{align*}
+    \Wout\mat{2}{AW^\dagger  & AV^\dagger} &= 0.
+\end{align*}
+this ignores the need to calculate $\hat u$ and $Vr$. We also need rows of $\Wout$ to consist of local eigenvectors of an equitable partition $\pi$ of $\mat{2}{AW^\dagger  & AV^\dagger}$ where $\mat{2}{AW^\dagger  & AV^\dagger}$ has constant columns on cells of $\pi$. Seems too restrictive. Perhaps instead simply
+\begin{align*}
+    \Wout\mat{2}{AW^\dagger \hat u  & AV^\dagger Vr} &= 0.
+    \\
+    \Wout A\mat{2}{P_{\operatorname{col}(W^\dagger)}  & P_{\operatorname{col}(V^\dagger)}}r &= 0.
+\end{align*}
+Or maybe in the middle
+\begin{align*}
+    \Wout\mat{2}{AW^\dagger \hat u  & AV^\dagger V} &= 0.
+    \\
+    \Wout A\mat{2}{P_{\operatorname{col}(W^\dagger)}r  & P_{\operatorname{col}(V^\dagger)}} &= 0.
+\end{align*}
+\begin{align}
+    \Wout \Win &= I
+    \\
+    \Wout &= \Win^\dagger + T\Win^{\perp\dagger}
+    \\
+    \Wout W^\dagger &= I
+    \\
+    W^\dagger &= (\Win S + \Win^\perp R)
+    \\
+    I &= (\Win^\dagger + T\Win^{\perp\dagger})(\Win S + \Win^\perp R)
+    \\
+    &= S + TR
+    \\
+    W^\dagger &= \Win (I-TR) + \Win^\perp R
+    \\
+    W^\dagger \Wout &= (\Win (I-TR) + \Win^\perp R)(\Win^\dagger + T\Win^{\perp\dagger})
+    \\
+    &= \Win (I - TR)\Win^\dagger + \Win^\perp RT\Win^{\perp\dagger} + \Win(I-TR)T\Win^{\perp\dagger} + \Win^\perp R\Win^\dagger
+    \\
+    0 &= \Wout V^\dagger
+    \\
+    &= (\Win^\dagger + T\Win^{\perp\dagger})V^\dagger
+    \\
+    V^\dagger &= \Win TS - \Win^\perp S
+    \\
+    0 = VW^\dagger &= V(\Win (I-TR) + \Win^\perp R)
+    \\
+    V &= \Win^\dagger + (T - R^{-1})\Win^{\perp\dagger}
+    \\
+    I = VV^\dagger &= TS -(TS - R^{-1}S) = R^{-1}S
+    \\
+    S &= R
+    \\
+    V^\dagger &= \Win TR - \Win^\perp R
+    \\
+    V &= \Win^\dagger + (T - R^{-1})\Win^{\perp\dagger}
+\end{align}
+Summarizing
+\begin{align*}
+    \Wout &= \Win^\dagger + T\Win^{\perp\dagger}
+    \\
+    W^\dagger &= \Win (I-TR) + \Win^\perp R
+    \\
+    V &= \Win^\dagger + (T - R^{-1})\Win^{\perp\dagger}
+    \\
+    V^\dagger &= \Win TR - \Win^\perp R.
+\end{align*}
+Then we might have
+\begin{align*}
+    0 &= \Wout\mat{2}{A(\Win (I-TR) + \Win^\perp R) \hat u  & A(\Win TR - \Win^\perp R) (\Win^\dagger + (T - R^{-1})\Win^{\perp\dagger})}
+    \\
+    &= \Wout A\mat{2}{(\Win (I-TR) + \Win^\perp R) \hat u  & (\Win T - \Win^\perp) (R\Win^\dagger + (RT - I)\Win^{\perp\dagger})}
+\end{align*}
+Calling this $\hat A\in M_{\dim r\times (\dim r - \dim u) +1}$, we want there to be $\dim u$ vectors orthogonal to $P_\pi$.  
+
+
+\subsection{Subspace won't work}
+
+Suppose for some $\mathcal{M}\oplus \mathcal{N} = \mathbb{R}^n$ that every possible $u\in\mathcal{M}$ and there is a $\Wout\in M_{\dim \mathcal{M}, n}$ such that $\dim(\Wout\mathcal{M}) = \dim(\mathcal{M})$ and 
+\begin{align*}
+    \Wout ( \tanh(x + y) - \tanh(x)) = 0
+\end{align*}
+for all $x\in \mathcal{M}, y\in \mathcal{N}$. 
+
+Then for all $c, d\in\mathbb{R}$ we have
+\begin{align*}
+    0&=\Wout ( \tanh(dx + cy) - \tanh(dx))
+    \\
+    &\underset{c\rightarrow\infty}{\longrightarrow} \Wout\mat{2}{\operatorname{sign}(y_i) - \tanh(dx_i) & y_i\neq 0 \\
+    0 & y_i=0}
+    \\
+    &\underset{d\rightarrow\pm\infty}{\longrightarrow} \Wout\mat{2}{\operatorname{sign}(y_i) \mp \operatorname{sign}(x_i)) & y_i\neq 0 \\
+    0 & y_i=0}.
+\end{align*}
+It should be noted that although the argument of $\tanh$ is not converging, its output does converge; then since $\Wout$ is continuous, these limits are zero. This gives three linear equations that are useful to us; summing the last two, we have
+\begin{align*}
+    0 &= \Wout\mat{2}{\operatorname{sign}(y_i) & y_i\neq 0 \\
+    0 & y_i=0}
+\end{align*}
+and subtracting this from the first equation
+\begin{align*}
+    0 &= \Wout\mat{2}{\tanh(dx_i) & y_i\neq 0 \\
+    0 & y_i=0}.
+\end{align*}
+Our original equation then becomes
+\begin{align*}
+    0 &= \Wout\mat{2}{\tanh(dx_i + cy_i) & y_i\neq 0 \\
+    0 & y_i=0}.
+\end{align*}
+We observe that for $i, j$ if there exist $x\in\mathcal{M}, y\in\mathcal{N}$ such that $y_i\neq0\neq y_j$ and $(x_i, y_i)\neq(x_j,y_j)$, then $\tanh(dx_i + cy_i)\neq \tanh(dx_j + y_j)$ for most choices of $c,d$ and so $\dim \operatorname{span} \mat{2}{\tanh(dx_i + cy_i) & y_i\neq 0 \\
+    0 & y_i=0} \geq $ the number of such $i$.
+
+We observe that $\operatorname{rank}(\Wout) = \dim \mathcal{M}$ and $\operatorname{nullity}(\Wout) = \dim \mathcal{N}$. We note that $|\{i\;:\;y_i \neq 0\;\text{for some }y\in\mathcal{M}\}| \geq \dim \mathcal{N}$. At home, I thought I had a proof that got us to $|\{i\;:\;y_i = 0\}| = \mathcal{M}$, which would force $\Wout$ to be zero in columns where $y$ is nonzero for any $y\in\mathcal{M}$.
+
+\end{document}
