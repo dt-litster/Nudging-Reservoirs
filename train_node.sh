@@ -8,8 +8,8 @@ declare -a WINDOW_FNS=("5" "10" "20" "40"
 declare -a LRS=("1e-3" "1e-4" "1e-5")
 declare -a WEIGHT_DECAYS=("1e-1" "1e-3" "1e-5")
 
-declare -i NUM_EPOCHS=1 # 30000
-declare -i SAVE_EVERY=1 # 6000
+declare -i NUM_EPOCHS=30000
+declare -i SAVE_EVERY=6000
 
 for WIDTH in "${WIDTHS[@]}"
 do
