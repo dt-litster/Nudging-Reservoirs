@@ -1,0 +1,171 @@
+\documentclass[12pt,oneside]{article}
+
+\newcommand{\defEx}[2]{\textbf{#1} #2}
+
+% This package simply sets the margins to be 1 inch.
+\usepackage[margin=1in]{geometry}
+
+% These packages include nice commands from AMS-LaTeX
+\usepackage{amssymb,amsmath,amsthm, graphicx}
+
+% Make the space between lines slightly more
+% generous than normal single spacing, but compensate
+% so that the spacing between rows of matrices still
+% looks normal.  Note that 1.1=1/.9090909...
+\renewcommand{\baselinestretch}{1.1}
+\renewcommand{\arraystretch}{.91}
+
+\newcommand{\ang}[1]{\langle #1 \rangle}
+
+% Define an environment for exercises.
+\newenvironment{introduction}[1]{\vspace{.1in}\noindent\textbf{Introduction #1 \hspace{.05em}}}{}
+
+\theoremstyle{plain}
+\newtheorem{theorem}{Theorem}
+\newtheorem*{theorem*}{Theorem}
+\newtheorem{corollary}{Corollary}
+\newtheorem{lemma}{Lemma}
+\newtheorem*{lemma*}{Lemma}
+\newtheorem{definition}{Definition}
+\newtheorem{example}{Example}
+
+\newenvironment{indentedexample}
+  {\begin{example}\addtolength{\leftskip}{2em}}
+  {\end{example}}
+
+\DeclareMathOperator{\vsspan}{span}
+
+%\NewDocumentCommand{\defEx}{ m m m O{0mm} O{6mm} }{
+ %   \noindent\normalsize\textbf{#1}
+  %  #2  
+   % \vspace{#4}
+    %\begin{indentedexample}
+     %   #3
+    %\end{indentedexample}
+    %\vspace{#5}
+%}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\begin{document}
+
+\begin{flushright}
+\normalsize{Melanie Neller, Dallin Seyfried, D.T. Litster}  \\
+Math 513R-Barker\\
+19 March 2025
+\end{flushright}
+
+\begin{center}
+\LARGE \textbf{Topic Review } \\
+\end{center}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Introduction}
+
+\noindent\normalsize{Before we discuss the experiments that we ran we must first recall some data assimilation ideas.}\\
+
+
+\noindent\large\textbf{Definitions:}\\
+\noindent\normalsize{We will begin by discussing some important jargon, how it relates to our research, and examples of how they are used.}\\ 
+
+% \noindent\normalsize\textbf{Congruence in the Integers:}
+%     Let $a,b,n \in \mathbb{Z}$ with $n > 0$.  Then $a$ is congruent to $b$ modulo $n$ provided that $n | (a-b)$.  
+
+% \indent\begin{example}
+%     $[4]_{12} = \{a \in \mathbb{Z} \hspace{1mm} | \hspace{1mm} 12|(a-4)\} = \{\dots, -8, 4, 16, \dots \}$ is the set of integers congruent to $4$ modulo $12$.  $\mathbb{Z}_{12}$ is isomorphic to the musical clock used in our paper.
+% \end{example}
+
+\defEx{Nudging:}
+{Nudging is a data assimilation technique that relaxes the model state toward observations by adding new terms, proportional to the difference between observations and model state, to the prognostic equations.}
+
+\documentclass[12pt]{article}
+\usepackage{amsmath}
+\usepackage{geometry}
+\geometry{a4paper, margin=1in}
+
+\begin{document}
+
+\title{Notes on Nudging in Data Assimilation}
+\author{}
+\date{}
+\maketitle
+
+\section{Introduction}
+Nudging is a data assimilation technique that relaxes the model state toward observations by adding correction terms to the model's governing equations. These corrections are proportional to the difference between the observed data and the model state. Nudging is widely used in numerical weather prediction and other geophysical applications to improve the accuracy of forecasts.
+
+\section{Theoretical Foundations}
+\subsection{Definition of Nudging}
+Nudging modifies the model's prognostic equations by introducing a term that "nudges" the model state \( \mathbf{x} \) toward observations \( \mathbf{y} \). The modified equation can be written as:
+
+
+\[
+\frac{d\mathbf{x}}{dt} = \mathbf{F}(\mathbf{x}, t) + \mathbf{G}(\mathbf{x}, \mathbf{y}),
+\]
+
+
+where:
+\begin{itemize}
+    \item \( \mathbf{F}(\mathbf{x}, t) \): The original model dynamics.
+    \item \( \mathbf{G}(\mathbf{x}, \mathbf{y}) = \mathbf{K} (\mathbf{y} - \mathbf{x}) \): The nudging term.
+    \item \( \mathbf{K} \): A gain matrix that determines the strength of the nudging.
+\end{itemize}
+
+\subsection{Key Assumptions}
+Nudging assumes:
+\begin{itemize}
+    \item Observations \( \mathbf{y} \) are available at regular intervals.
+    \item The model state \( \mathbf{x} \) is close to the true state of the system.
+    \item The nudging term does not destabilize the model dynamics.
+\end{itemize}
+
+\subsection{Comparison with Other Data Assimilation Methods}
+Unlike variational methods (e.g., 3D-Var, 4D-Var) or ensemble-based methods (e.g., Ensemble Kalman Filter), nudging is computationally simpler and does not require solving optimization problems or generating ensembles. However, it may be less accurate in systems with highly nonlinear dynamics.
+
+\section{Applications of Nudging}
+\subsection{Numerical Weather Prediction}
+Nudging is commonly used in weather forecasting to incorporate observational data (e.g., temperature, wind speed) into atmospheric models. By continuously adjusting the model state toward observations, nudging helps maintain forecast accuracy over time.
+
+\subsection{Oceanography}
+In ocean modeling, nudging is used to assimilate data such as sea surface temperature and salinity. This improves the representation of ocean currents and other physical processes.
+
+\subsection{Climate Modeling}
+Nudging is applied in climate models to constrain simulations to observed historical data, enabling better analysis of long-term trends and variability.
+
+\section{Mathematical Formulation}
+The nudging term \( \mathbf{G}(\mathbf{x}, \mathbf{y}) \) is typically defined as:
+
+
+\[
+\mathbf{G}(\mathbf{x}, \mathbf{y}) = \mathbf{K} (\mathbf{y} - \mathbf{x}),
+\]
+
+
+where \( \mathbf{K} \) is the gain matrix. The choice of \( \mathbf{K} \) is critical:
+\begin{itemize}
+    \item A large \( \mathbf{K} \) results in rapid adjustment but may destabilize the model.
+    \item A small \( \mathbf{K} \) ensures stability but may lead to slower convergence.
+\end{itemize}
+
+\section{Advantages and Limitations}
+\subsection{Advantages}
+\begin{itemize}
+    \item Computationally efficient compared to variational and ensemble methods.
+    \item Easy to implement in existing models.
+    \item Effective for systems with frequent and reliable observations.
+\end{itemize}
+
+\subsection{Limitations}
+\begin{itemize}
+    \item May not perform well in highly nonlinear systems.
+    \item Requires careful tuning of the gain matrix \( \mathbf{K} \).
+    \item Assumes that observational errors are small and unbiased.
+\end{itemize}
+
+\section{Conclusion}
+Nudging is a valuable tool in data assimilation, particularly for applications where computational efficiency is critical. While it has limitations compared to more sophisticated methods, its simplicity and effectiveness make it a popular choice in many fields.
+
+\end{document}
+
+
+\end{document}
+
