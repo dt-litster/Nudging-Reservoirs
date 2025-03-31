@@ -7,7 +7,34 @@ import argparse
 from tqdm import tqdm
 from scipy.interpolate import CubicSpline
 import numpy as np
+from pathlib import Path
 
+# Dictionaries for file path naming
+
+WINDOW_FNS = {
+    "5": 0, 
+    "10": 1, 
+    "20": 2, 
+    "40": 3,
+    "min(10, t/500)": 4, 
+    "min(20, t/500)": 5, 
+    "min(40, t/500)": 6,
+    "max(5,5-5*np.cos(t*np.pi/2500))": 7, 
+    "max(5,10-10*np.cos(t*np.pi/2500))": 8, 
+    "max(5,20-20*np.cos(t*np.pi/2500))": 9
+}
+
+LRS = {
+    1e-3: 0,
+    1e-4: 1,
+    1e-5: 2
+}
+
+WEIGHT_DECAYS = {
+    1e-1: 0,
+    1e-3: 1,
+    1e-5: 2
+}
 
 
 
@@ -43,6 +70,10 @@ parser.add_argument('-c', '--cuda', action="store_true", help="use cuda if avail
 parser.add_argument('--bias', type=str, choices=["both", "first", "last", "none"], default="both")
 args = parser.parse_args()
 
+# Create inidividual path for this run
+path = args.path + f'{WINDOW_FNS[args.window_schedule]}_{LRS[args.lr]}_{WEIGHT_DECAYS[args.weight_decay]}/'
+directory = Path(path)
+directory.mkdir(parents=True, exist_ok=True)
 
 # Set model, optimizer and loss
 device = 'cpu'
@@ -56,6 +87,8 @@ window_fn = lambda t: max(2, min(9000, int(eval(args.window_schedule))))
 
 loss_fn = nn.MSELoss()
 biases = (args.bias in {"both", "first"}, args.bias in {"both", "last"})
+
+
 for i, width in enumerate(args.width):
     model = NODE(width, *biases).to(device)
     t, U = chaosode.orbit("lorenz", duration=100)
@@ -69,16 +102,16 @@ for i, width in enumerate(args.width):
     val_losses = []
 
     X, y = torch.from_numpy(u(t[:9000])), torch.from_numpy(u(t[9000:10000]))
-    t = torch.from_numpy(t)
-    torch.save(X, f'{args.path}_{width}_X.pt')
-    torch.save(y, f'{args.path}_{width}_y.pt')
+    t = torch.from_numpy(t).to(device)
+    torch.save(X, f'{path}node_{width}_X.pt')
+    torch.save(y, f'{path}node_{width}_y.pt')
     for idx in tqdm(range(args.num_epochs), initial=i*args.num_epochs, total=args.num_epochs*len(args.width), leave=True):
         optimizer.zero_grad()
 
         # get prediction and make a tuple to pass to the loss
         window = window_fn(idx)
         sample_t = np.random.randint(9000+1-window)
-        X_batch = X[sample_t:sample_t+window].to(torch.float)
+        X_batch = X[sample_t:sample_t+window].to(torch.float).to(device)
         X_pred = odeint(model, X_batch[0], t[sample_t:sample_t+window])
 
         # calculate loss and backprop
@@ -87,7 +120,7 @@ for i, width in enumerate(args.width):
         optimizer.step()
         train_losses.append(loss.item())
 
-        if (idx + 1) % args.val_every == 0:
+        if (idx + 1) % args.save_every == 0:
             model.eval()
 
             # test validation error
@@ -99,9 +132,8 @@ for i, width in enumerate(args.width):
 
             model.train()
 
-        if (idx + 1) % args.save_every == 0:
-            torch.save(model.state_dict(), f'{args.path}_{width}_{idx+1}_weights.pt')
-            torch.save(train_losses, f'{args.path}_{width}_{idx+1}_train_losses.pt')
-            torch.save(val_losses, f'{args.path}_{width}_{idx+1}_val_losses.pt')
-            torch.save(X_pred, f'{args.path}_{width}_{idx+1}_X_pred.pt')
-            torch.save(y_pred, f'{args.path}_{width}_{idx+1}_y_pred.pt')
+            torch.save(model.state_dict(), f'{path}node_{width}_{idx+1}_weights.pt')
+            torch.save(train_losses, f'{path}node_{width}_{idx+1}_train_losses.pt')
+            torch.save(val_losses, f'{path}node_{width}_{idx+1}_val_losses.pt')
+            torch.save(X_pred, f'{path}node_{width}_{idx+1}_X_pred.pt')
+            torch.save(y_pred, f'{path}node_{width}_{idx+1}_y_pred.pt')
