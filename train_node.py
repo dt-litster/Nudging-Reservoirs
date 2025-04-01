@@ -53,9 +53,6 @@ class NODE(nn.Module):
         self.num_calls += 1
         return self.net(y)
 
-
-
-
 # Get command line arguments for the filepath, model type, and various params
 parser = argparse.ArgumentParser()
 parser.add_argument('path', type=str, help="filepath in which to save losses and weights. the script will automatically append the width of the neural net and the number of epochs trained")
