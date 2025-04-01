@@ -1,13 +1,8 @@
 import numpy as np
-import itertools
 import matplotlib.pyplot as plt
-import matplotlib
-from file_io import get_system_data
-import helper
 from pathlib import Path
 from mpi4py import MPI
 from itertools import product
-import chaosode
 
 
 
@@ -22,7 +17,7 @@ def nudging_reservoir_visuals(path, noise_variance, nudging_strength):
     t = np.linspace(0,10,1001)
 
     
-    plt.figure(figsize=(14,4.5))
+    plt.figure(figsize=(14,6))
     plt.suptitle(f"Reservoir Nudging with Noise Variance={noise_variance}, Nudging Strength={nudging_strength}")
     
     # Plot the Internal Reservoir States
@@ -30,25 +25,25 @@ def nudging_reservoir_visuals(path, noise_variance, nudging_strength):
     plt.title("Internal States")
     color = np.random.rand(best_pred_states.shape[1], 3)
     for i, c in enumerate(color):
-        plt.plot(t, best_pred_states, c=c)
-    plt.axvline(vpt, color='green', label='VPT')
+        plt.plot(t, best_pred_states[:,i], c=c)
+    plt.axvline(np.max(vpt), color='green', label='VPT')
 
     # Plot the Recompiled Attractor vs Actual
     plt.subplot(212)
     plt.title("Prediction")
     for i in range(3):
         if i == 0:
-            plt.plot(t, best_U_pred.T, c="orange", label="Predicted")
+            plt.plot(t, best_U_pred[i,:], c="orange", label="Predicted")
         else:
-            plt.plot(t, best_U_pred.T, c="orange")
+            plt.plot(t, best_U_pred[i,:], c="orange")
 
     for i in range(3):
         if i == 0:
-            plt.plot(t, U_actual.T, c="blue", label="Actual")
+            plt.plot(t, U_actual[:,i], c="blue", label="Actual")
         else:
-            plt.plot(t, U_actual.T, c="blue")
+            plt.plot(t, U_actual[:,i], c="blue")
 
-    plt.axvline(vpt, color='green', label='VPT')
+    plt.axvline(np.max(vpt), color='green', label='VPT')
     plt.legend()
     plt.tight_layout()
 
