@@ -42,6 +42,7 @@ class NODE(nn.Module):
     def __init__(self, width, add_in_bias=True, add_out_bias=True, in_layers=3, out_layers=3):
         super(NODE, self).__init__()
         self.num_calls = 0
+        self.quad = in_layers==12
         self.net = nn.Sequential(
             nn.Linear(in_layers, width, bias=add_in_bias),
             nn.Tanh(),
@@ -51,6 +52,8 @@ class NODE(nn.Module):
     def forward(self, t, y):
         # y has shape (batch_size, 4)
         self.num_calls += 1
+        if self.quad:
+            return self.net(torch.cat([y, torch.outer(y, y).reshape(-1)]))
         return self.net(y)
 
 # Get command line arguments for the filepath, model type, and various params
@@ -65,6 +68,7 @@ parser.add_argument('--val_every', type=int, default=25, help="how often to test
 parser.add_argument('-w', '--width', nargs='+', type=int)
 parser.add_argument('-c', '--cuda', action="store_true", help="use cuda if available")
 parser.add_argument('--bias', type=str, choices=["both", "first", "last", "none"], default="both")
+parser.add_argument('-q', '--quad', action='store_true', help="feed quadratic terms in to node")
 args = parser.parse_args()
 
 # Create inidividual path for this run
@@ -84,10 +88,10 @@ window_fn = lambda t: max(2, min(9000, int(eval(args.window_schedule))))
 
 loss_fn = nn.MSELoss()
 biases = (args.bias in {"both", "first"}, args.bias in {"both", "last"})
-
+in_width = 3 if not args.quad else 12
 
 for i, width in enumerate(args.width):
-    model = NODE(width, *biases).to(device)
+    model = NODE(width, *biases, in_layers=in_width).to(device)
     t, U = chaosode.orbit("lorenz", duration=100)
     u = CubicSpline(t, U)
 
