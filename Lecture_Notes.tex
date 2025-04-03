@@ -50,13 +50,13 @@
 \begin{document}
 
 \begin{flushright}
-\normalsize{Melanie Neller, Dallin Seyfried, D.T. Litster}  \\
+\normalsize{D.T. Litster, Melanie Neller, Dallin Seyfried}  \\
 Math 513R-Barker\\
-19 March 2025
+\today
 \end{flushright}
 
 \begin{center}
-\LARGE \textbf{Topic Review } \\
+\LARGE \textbf{Lecture Notes} \\
 \end{center}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -78,19 +78,17 @@ Math 513R-Barker\\
 \defEx{Nudging:}
 {Nudging is a data assimilation technique that relaxes the model state toward observations by adding new terms, proportional to the difference between observations and model state, to the prognostic equations.}
 
-\documentclass[12pt]{article}
-\usepackage{amsmath}
-\usepackage{geometry}
-\geometry{a4paper, margin=1in}
+\defEx{Reservoir Computing:}
+{A reservoir computer is a machine learning model that can be used to predict the future states of time-dependent processes.  They are often used in modeling dynamical systems (such as the Lorenz attractor), pattern classification, and speech recognition.}
 
-\begin{document}
+\pagebreak
 
-\title{Notes on Nudging in Data Assimilation}
-\author{}
-\date{}
-\maketitle
 
-\section{Introduction}
+\begin{center}
+    \LARGE Notes on Nudging in Data Assimilation \\
+\end{center}
+
+\section{Nudging Introduction}
 Nudging is a data assimilation technique that relaxes the model state toward observations by adding correction terms to the model's governing equations. These corrections are proportional to the difference between the observed data and the model state. Nudging is widely used in numerical weather prediction and other geophysical applications to improve the accuracy of forecasts.
 
 \section{Theoretical Foundations}
@@ -164,7 +162,76 @@ where \( \mathbf{K} \) is the gain matrix. The choice of \( \mathbf{K} \) is cri
 \section{Conclusion}
 Nudging is a valuable tool in data assimilation, particularly for applications where computational efficiency is critical. While it has limitations compared to more sophisticated methods, its simplicity and effectiveness make it a popular choice in many fields.
 
-\end{document}
+\pagebreak
+
+
+\begin{center}
+    \LARGE Notes on Reservoir Computing \\
+\end{center}
+
+\section{Reservoir Computing Introduction}
+A reservoir computer is a machine learning model that can be used to predict the future states of time-dependent processes such as chaotic dynamical systems.
+
+\section{Theoretical Foundations}
+\subsection{Reservoir Computing Definition}
+A \textbf{reservoir} is a model for time series prediction where an input signal $u(t) \in \mathbb{R}^m$ over a time period $[0,T]$ drives a network $A \in \mathbb{R}^{n\times n}$ 
+which reconstructs the signal to make a prediction $\hat{u}(t) \in \mathbb{R}^m$ in the future ($t > T$).  The Reservoir Computer has three stages of life:
+\begin{enumerate}
+    \item Processing
+    \item Aggregation
+    \item Prediction
+\end{enumerate}
+
+\subsection{Processing}
+In the processing step, then odes of a network are driven by the input-signal $u(t)$ over the training interval $t \in [0,T]$.  In reservoir computing, this processing network
+can be any network.  Typically, in our examples, the network is given by $A \in \mathbb{R}^{n\times n}$ where the entry $A_{ij} \in \mathbb{R}$ represents the weighted
+connection from node $j$ to node $i$.
+
+In the model, the processing network's nodes evolve according to the following differential equation:
+\begin{align*}
+    \frac{d}{dt}r(t) = \gamma [-r(t) + f(\rho A r(t) + \sigma W_{in}u(t))]
+\end{align*}
+for $t \in [0,T]$ where $r(t) \in \mathbb{R}^n$ represents the state of the nodes within the reservoir at time $t \in [0,T]$.  The matrix $W_{in} \in \mathbb{R}^{n\times m}$
+in the differential equation is fixed and sends a linear combination of the $m-$dimensional training data $u(t) \in \mathbb{R}^m$ to each of the $n$ reservoir nodes.  
+Typically $W_{in}$ is chosen from a uniform distribution $[W_{in}]_{ij} \sim U(-1,1)$.  The function $f:\mathbb{R}^n \rightarrow \mathbb{R}^n$ in the above equation is applied
+element wise and $\gamma, \rho, \sigma$ are nonnegative scalar parameters of the reservoir.
+
+As the input-signal $u(t)$ appears in the given system, the nodes of the reservoir's processing network depend on, or are driven by, this time-series.  The nodes' response
+to this input signal is given by the solution $r(t)$ to this differential equation over the training period $t \in [0,T]$.  Matching what is typically done in the field,
+the initial reservoir state $r(0) = r_0$ is typically initialized randomly, with each coordinate drawn from a uniform distribution.
+
+\subsection{Aggregation}
+In the second step of the life cycle we aggregate the network responses.  Using a discretized time system we compute the matrix:
+\begin{align*}
+    W_{out} = \text{argmin}_{W \in \mathbb{R}^{m \times n}} \left [ \sum_{i=0}^l ||Wr(t_i) - u(t_i)||_2^2 + \alpha ||W||_2^2 \right ]
+\end{align*}
+that minimizes the sum on the right.  Here, the $\alpha$ parameter can be thought of as a Ridge Regression term to reduce overfitting.
+The result is the mapping $W_{out} \in \mathbb{R}^{m \times n}$, which is used to aggregate the network responses into the vector $\hat{u}(t) = W_{out}r(t) \in \mathbb{R}^m$.
+This can, roughly speaking, be considered to be a proxy for the input signal, i.e. $\hat{u}(t) \approx u(t)$ over the training period $t \in [0,T]$.
+
+\subsection{Prediction}
+The last step is done by replacing the input-signal $u(t)$ by the aggregate response vector $\hat{u}(t)$ in the differential system:
+\begin{align*}
+    \frac{d}{dt}\hat{r}(t) = \gamma[-\hat{r}(t) + f([\rho A + \sigma W_{in}W_{out}]\hat{r}(t))]
+\end{align*}
+which no longer depends on the training data.  Because of this, we refer to this system as the trained reservoir and use the valid prediction time metric to calculate how well 
+the prediction does against the actual signal.
+
+\subsection{Valid Prediction Time Definition}
+Let $d(\cdot, \cdot)$ be a metric and let $\epsilon > 0$ be a tolerance.  The valid prediction time (VPT) of a prediction time-series $\hat{u}(t)$ beginning at time $t = T$
+associated with the signal $u(t)$ is the largest value $t_* = T_* - T \geq 0$ such that the error:
+\[d(u(t),\hat{u}(t)) \leq \epsilon\]
+for all $t \in [T,T_*]$.
+
+\subsection{Applications of Reservoir Computing}
+Some common applications of Reservoir Computing include:
+\begin{enumerate}
+    \item Robotic Controllers
+    \item Pattern Classification
+    \item Attractor Reconstruction
+    \item Forecasting Chaotic Systems
+\end{enumerate}
+
 
 
 \end{document}
