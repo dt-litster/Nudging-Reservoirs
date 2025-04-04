@@ -7,6 +7,8 @@
 
 % These packages include nice commands from AMS-LaTeX
 \usepackage{amssymb,amsmath,amsthm, graphicx}
+\usepackage{xstring}
+
 
 % Make the space between lines slightly more
 % generous than normal single spacing, but compensate
@@ -29,28 +31,31 @@
 \newtheorem{definition}{Definition}
 \newtheorem{example}{Example}
 
+
 \newenvironment{indentedexample}
   {\begin{example}\addtolength{\leftskip}{2em}}
   {\end{example}}
 
 \DeclareMathOperator{\vsspan}{span}
 
-%\NewDocumentCommand{\defEx}{ m m m O{0mm} O{6mm} }{
- %   \noindent\normalsize\textbf{#1}
-  %  #2  
-   % \vspace{#4}
-    %\begin{indentedexample}
-     %   #3
-    %\end{indentedexample}
-    %\vspace{#5}
-%}
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\newcommand{\mat}[2]{
+    \IfInteger{#1}{
+        \left[\begin{array}{*{#1}c} #2 \end{array}\right]
+    }{
+        \left[\begin{array}{#1} #2 \end{array}\right]}
+    }
+
+\newcommand{\Wout}{W_{\text{out}}}
+\newcommand{\Win}{W_{\text{in}}}%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
 
 \begin{document}
 
 \begin{flushright}
-\normalsize{D.T. Litster, Melanie Neller, Dallin Seyfried}  \\
+\normalsize{DT Litster, Melanie Neller, Dallin Seyfried}  \\
 Math 513R-Barker\\
 \today
 \end{flushright}
@@ -68,18 +73,17 @@ Math 513R-Barker\\
 \noindent\large\textbf{Definitions:}\\
 \noindent\normalsize{We will begin by discussing some important jargon, how it relates to our research, and examples of how they are used.}\\ 
 
-% \noindent\normalsize\textbf{Congruence in the Integers:}
-%     Let $a,b,n \in \mathbb{Z}$ with $n > 0$.  Then $a$ is congruent to $b$ modulo $n$ provided that $n | (a-b)$.  
-
-% \indent\begin{example}
-%     $[4]_{12} = \{a \in \mathbb{Z} \hspace{1mm} | \hspace{1mm} 12|(a-4)\} = \{\dots, -8, 4, 16, \dots \}$ is the set of integers congruent to $4$ modulo $12$.  $\mathbb{Z}_{12}$ is isomorphic to the musical clock used in our paper.
-% \end{example}
 
 \defEx{Nudging:}
 {Nudging is a data assimilation technique that relaxes the model state toward observations by adding new terms, proportional to the difference between observations and model state, to the prognostic equations.}
 
 \defEx{Reservoir Computing:}
 {A reservoir computer is a machine learning model that can be used to predict the future states of time-dependent processes.  They are often used in modeling dynamical systems (such as the Lorenz attractor), pattern classification, and speech recognition.}
+
+\defEx{Neural ODE (NODE):}
+{
+A Neural ODE is a neural network used to approximate the derivative of a signal. It can be used as a single layer in a larger neural net, but in our research we focus on a neural net consisting of a single NODE layer. These are often used in predicting future signals given past and current data, but can be applied in many machine learning areas where other continuous techniques (like variational autoencoding or continuous normalizing flows) are used.
+}
 
 \pagebreak
 
@@ -232,6 +236,138 @@ Some common applications of Reservoir Computing include:
     \item Forecasting Chaotic Systems
 \end{enumerate}
 
+\pagebreak
+
+
+\begin{center}
+    \LARGE Notes on Neural ODEs \\
+\end{center}
+
+
+\section{Neural ODE Introduction}
+A Neural ODE or NODE is a particular type of layer that can be put into a neural net. By using a differential equation solver as a layer in a neural net, you can construct a ``continuum of layers'' that is more efficient at solving continuous problems. In our research, we are attempting to estimate a continuous derivative, so neural net consisting of a single NODE layer is used.
+
+
+
+\section{Theoretical Foundations}
+\subsection{NODE Definition}
+A  traditional sequence of layers in a neural net is of the form $A_n \circ \sigma \circ A_{n-1} \circ \sigma \circ \cdots \circ \sigma \circ A_0$, where each $A_i$ is an affine function and $\sigma$ is a nonaffine function such as $\tanh$. In a recurrent neural net (RNN), each $A_i$ is the same, and the net calculates $(A\circ \sigma)^{(n)}(A(x))$; in other words, the $n$-th forward iterate of a discrete time dynamical system. Chen et. al. (2018) noticed that if we assume the RNN is approximating a time integral from 0 to 1, then the limit of a sequence of deeper and deeper RNNs would solve the integral $\int_0^1 \dot f \; dt$ for some $\dot f$. 
+
+A \textbf{Neural ODE layer} of a neural network is a layer which accepts an initial condition $u$ and uses a pre-built differential equation solver to find $\int_0^1 f(u(t))\;dt$ where $f$ is a neural net. If the layers are wide enough and the observed signals live in a compact space, the Universal Function Approximation Theorem guarantees such a layer can approximate the true solution arbitrarily well. When the goal of a neural net is to predict future values of a continuous dynamical system, using a single NODE layer in a neural net suffices. 
+
+\subsection{Training}
+Like most neural net layers, NODE layers are typically optimized using stochastic gradient descent. However, if the NODE is trained only on long signals, this can get stuck in a local minimum that has good behavior on average, but fails to reconstruct the signal well locally. To counteract this, it is common to train NODEs by sampling small windows of 5-10 timesteps of a signal for each batch. The training process is then
+
+\begin{itemize}
+    \item For each batch, sample several 5-10 step intervals.
+
+    \item Calculate $\nabla_{\theta}\ell(u(t), \int_0^t f(s) \; ds)$ for each batch and time step $t$, where $\ell$ is some loss function and $\theta$ are the parameters of the neural net $f$.
+
+    \item Take a gradient step. 
+\end{itemize}
+
+\subsection{Benefits of NODEs}
+For continuous problems, NODEs can provide three main advantages. 
+\begin{enumerate}
+    \item Accuracy. Often, the continuous nature of NODEs provides better accuracy on continuous problems when compared to discrete methods such as traditional neural nets.
+
+    \item Adaptive forward pass. Using adaptive methods in the integrator allows the model to take large steps when the time derivative is small and small steps when the time derivative is large.
+
+    \item Memory. Using adjoint methods during backpropogation saves on memory at the cost of only a little time. 
+\end{enumerate}
+
+\subsection{Applications of NODEs}
+Some common applications of Neural ODEs include:
+\begin{enumerate}
+    \item Forecasting Dynamical Systems
+
+    \item Normalizing Flows
+
+    \item Density Modeling
+\end{enumerate}
+
+\section{Comparing Reservoir Computing to Nudged NODEs}
+\subsection{Nudging NODEs}
+Although you can use NODEs as one of many layers in a neural net, if you are learning a continuous time dynamical system it is reasonable to use a neural net consisting of only a single NODE layer. This is the approach we take in this project. Additionally, we work with the assumption that you will nudge the resulting ODE when you have data.
+
+Given a signal $u$, we therefore make an approximate reconstruction $\hat u$ by first training a NODE by finding $C, B$ such that
+\begin{align*}
+    \dot u &\approx C\tanh(Bx) 
+\end{align*}
+and then setting
+\begin{align}
+    \hat {\dot u} &=  C\tanh(Bx) - \gamma (\hat u - u). \label{NODE}
+\end{align}
+As a reminder, the reservoir equations are
+\begin{align*}
+    \dot r &= \gamma (-r + \tanh(Ar + \Win u))
+    \\
+    \hat u &= \Wout r,
+\end{align*}
+or combining the two, 
+\begin{align}
+    \hat {\dot u} &= \gamma (-\hat u + \Wout \tanh(Ar + \Win u)). \label{ResComp}
+\end{align}
+Compare (\ref{NODE}) and (\ref{ResComp}); if $C\approx \gamma \Wout$ and $Bx \approx Ar$, then the only real difference is the addition of $\Win U$ inside the $\tanh$ in the reservoir as opposed to the addition of $u$ outside the $\tanh$ in the nudged NODE. Theoretically, the universal approximation theorem guarantees that for wide enough neural nets, the optimal neural net of a given size approximates $\dot u$ arbitrarily well. If reservoirs are approximations of NODEs, it would make sense that they would work well.
+
+
+\subsection{Not a Perfect Analogy}
+However, doesn't seem to tell the full story. Suppose all the possible signals $u\in\mathbb{R}^{n}$ live in some subspace $\mathcal{M}\subset \mathbb{R}^{n+m}$ for some $m > 0$, and that the hidden signals $r$ are in $\mathbb{R}^{n+m}$. If we also assume that there is a full rank matrix $\Wout\in M_{n, n+m}$ such that $\Wout r \approx u$, then there exists a $\Win\in M_{n+m, n}$ such that $\Wout \Win u = u$ and every $r\in \mathbb{R}^{n+m}$ can be decomposed as $r = \Win u + v$ for some $u\in\mathbb{R}^n$ and $v$ orthogonal to $\mathcal{M}$.  Given that $\Wout r\approx u$, equating the reservoir equations (after moving the $u$ outside the $\tanh$) and nudged NODE equations give us that
+\begin{align*}
+    \hat{\dot u} &= \gamma \Wout \tanh(\Win \hat u + v) + \gamma(\hat u - u)
+    \\
+    &\approx \gamma \Wout \tanh(\Win \hat u) + \gamma(\hat u - u),
+\end{align*}
+so we would have
+\begin{align}
+    \Wout ( \tanh(x + y) - \tanh(x)) = 0 \label{bad}
+\end{align}
+for all $x\in \mathcal{M}, y\in \mathcal{M}^\perp$. As we show below, this will constrain us much more than we would like. 
+
+Assuming (\ref{bad}), for all $c, d\in\mathbb{R}$ we have
+\begin{align*}
+    0 &= \Wout ( \tanh(dx + cy) - \tanh(dx))
+    \\
+    &\underset{c\rightarrow\infty}{\longrightarrow} \Wout\mat{2}{\operatorname{sign}(y_i) - \tanh(dx_i) & y_i\neq 0 \\
+    0 & y_i=0}
+    \\
+    &\underset{d\rightarrow\pm\infty}{\longrightarrow} \Wout\mat{2}{\operatorname{sign}(y_i) \mp \operatorname{sign}(x_i)) & y_i\neq 0 \\
+    0 & y_i=0}.
+\end{align*}
+It should be noted that although the argument of $\tanh$ is not converging, its output does converge; then since $\Wout$ is continuous, these limits are zero. These limits gives three linear equations that are useful to us; summing the last two, we have
+\begin{align*}
+    0 &= \Wout\mat{2}{\operatorname{sign}(y_i) & y_i\neq 0 \\
+    0 & y_i=0}
+\end{align*}
+and subtracting this from the first equation
+\begin{align*}
+    0 &= \Wout\mat{2}{\tanh(dx_i) & y_i\neq 0 \\
+    0 & y_i=0}.
+\end{align*}
+Our original equation then becomes
+\begin{align*}
+    0 &= \Wout\mat{2}{\tanh(dx_i + cy_i) & y_i\neq 0 \\
+    0 & y_i=0}.
+\end{align*}
+We observe that for $i, j$ if there exist $x\in\mathcal{M}, y\in\mathcal{M}^\perp$ such that $y_i\neq0\neq y_j$ and $(x_i, y_i)\neq(x_j,y_j)$, then $\tanh(dx_i + cy_i)\neq \tanh(dx_j + y_j)$ for most choices of $c,d$. We group the indices into equivalence classes $I_1, \ldots, I_k$ by saying $i\sim j$ if $y_i=0$ for all $y\in\mathcal{N}$ or if $y_i=y_j\neq 0$ and $x_i=x_j$ for all $y\in \mathcal{M}^\perp, x\in\mathcal{M}$. We then have $m\geq \dim \operatorname{span} \mat{2}{\tanh(dx_i + cy_i) & y_i\neq 0 \\
+    0 & y_i=0} \geq k-1$, the number of $y_i\neq 0$ equivalence classes (the first inequality comes from noting that $\dim \operatorname{kernel} \Wout = \dim \mathcal{M}^\perp$.
+
+However, since $\mathcal{M}\oplus \mathcal{M}^\perp= \mathbb{C}^{n+m}$, we have $y_i=y_j \neq 0$ and $x_i=x_j$ for all $x\in \mathcal{M}, y\in\mathcal{M}^\perp$ only if $i=j$; therefore $k-1 = |\{i\;:\;y_i \neq 0\;\text{for some }y\in\mathcal{M}^\perp\}| \geq m$, and so by a squeeze, $|\{i\;:\;y_i \neq 0\;\text{for some }y\in\mathcal{M}^\perp\}|  = m$ and $|\{i\;:\;y_i = 0\;\text{for all }y\in\mathcal{M}^\perp\}|  = n$. Permuting the columns of $\Wout$, we must necessarily have
+\begin{align*}
+    \Wout = \mat{2}{W & 0_{n, m}}
+\end{align*}
+for some $W$. This essentially means that $\Wout$ ignores the behavior of the last $m$ parts of the reservoir, meaning that going wide would provide no additional benefits. Since NODEs and reservoirs aim specifically to make use of the extra $m$ variables in the hidden state $r$, this means that if we want to make a comparison between NODEs and reservoirs, we would need to abandon the idea that $\Win u$ occupies a linear subspace of the possible $r$s. This essentially means that the comparision between (\ref{NODE}) and (\ref{ResComp}) is either only superficial, or involves some nuanced and subtle work to understand properly. 
+
+\newpage
+\begin{center}
+    \LARGE Experimental Results \\
+\end{center}
+We found that training a neural net was difficult; after performing a hyperparameter search for each of the widths 10, 50, 100, that our best performing neural nets still failed to reconstruct the signal and so could not hope to have good valid prediction times. As a last ditch effort, instead of feeding the signal $u$ into the neural net while training (which we call linear term NODEs), we also fed in $\operatorname{vec} (uu^\top)$ to create what we call quadratic term nodes. These neural nets trained okay, but not perfectly. They did not reconstruct the original signal that well, and VPT was still zero as a result. However, when nudged, the VPT increased to about 0.8. However, in both nudged and unnudged linear and quadratic term NODEs, the final models tended to produce predictions that stayed near the attractors. By a typo, we also trained a few NODEs with width 5000; this were able to learn to go back and forth between the two attractors.
+
+When compared to the longer VPT for reservoirs, it looks like NODEs are capable of learning qualitatively better long term predictions while reservoirs tend to learn better short term predictions. This suggests that if we tried wider, deeper, and longer trained NODEs we could combine the long term qualitative power of NODEs with the short term power of reservoirs. However, given that reservoirs perform so well for a given width, we cannot accept the hypothesis that reservoirs are ``just'' an approximation to nudged NODEs. Rather, the additional information in the adjacency matrix $A$ somehow allows more complicated representations than the corresponding size of Neural ODE. 
+
+\section{Future Work}
+Given that reservoirs seem to work well in the short term but NODEs work well in the long term, it is worth exploring how to combine the best of both worlds. Rather than fixing $A$ and $\Win$, is there a way to learn these parameters of a reservoir like in a NODE? Could we take a convex combination of the predictions of the two methods, letting the convex parameter favor the reservoir for early times but the NODE for later times? Would deeper reservoirs (with more compositions of affine and nonaffine functions) work as well, or even better? These and other questions are worth exploring in more detail to combine the distinct advantages of each method. 
 
 
 \end{document}
