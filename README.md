@@ -1,5 +1,5 @@
 # Nudging-Reservoirs
-This repository contains preliminary code and ideas for implementing Reservoir Computers with Nudging techniques and comparing the results to Neural ODEs restricted to a similar setup.
+This repository contains preliminary code and ideas for implementing Reservoir Computers with Nudging techniques and comparing the results to Neural ODEs restricted to a similar setup. Our results indicate that while reservoirs may look superficially like approximations to nudged NODEs, this connection does not seem genuine since for a fixed size, reservoirs tend to outperform nudged NODEs. 
 
 ## Table of Contents
 - [Features](#features)
